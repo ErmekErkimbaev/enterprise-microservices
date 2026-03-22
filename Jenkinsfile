@@ -9,13 +9,6 @@ pipeline {
     }
 
     stages {
-
-        stage('Checkout') {
-            steps {
-                git 'https://github.com/ErmekErkimbaev/enterprise-microservices.git'
-            }
-        }
-
         stage('Build & Push') {
             steps {
                 sh '''
