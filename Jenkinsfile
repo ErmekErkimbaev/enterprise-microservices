@@ -13,7 +13,7 @@ spec:
       tty: true
 
     - name: kubectl
-      image: bitnami/kubectl:latest
+      image: alpine/k8s:1.29.0
       command:
         - cat
       tty: true
