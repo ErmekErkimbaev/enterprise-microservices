@@ -1,7 +1,29 @@
 pipeline {
     agent {
         kubernetes {
-            inheritFrom 'default'
+            yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+    - name: aws
+      image: amazon/aws-cli:latest
+      command:
+        - cat
+      tty: true
+
+    - name: kubectl
+      image: bitnami/kubectl:latest
+      command:
+        - cat
+      tty: true
+
+    - name: docker
+      image: docker:24.0.5
+      command:
+        - cat
+      tty: true
+"""
         }
     }
 
@@ -9,13 +31,17 @@ pipeline {
 
         stage('Check AWS') {
             steps {
-                sh 'aws --version'
+                container('aws') {
+                    sh 'aws --version'
+                }
             }
         }
 
         stage('Check kubectl') {
             steps {
-                sh 'kubectl version --client'
+                container('kubectl') {
+                    sh 'kubectl version --client'
+                }
             }
         }
 
