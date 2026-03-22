@@ -1,5 +1,11 @@
 pipeline {
-    agent any
+    agent {
+    kubernetes {
+        label 'jenkins-agent'
+        defaultContainer 'docker'
+    }
+}
+   
 
     environment {
         AWS_REGION = "us-east-2"
