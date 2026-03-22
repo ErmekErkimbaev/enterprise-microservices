@@ -2,7 +2,7 @@ pipeline {
     agent {
     kubernetes {
         label 'jenkins-agent'
-        defaultContainer 'docker'
+        defaultContainer ''
     }
 }
    
@@ -25,6 +25,13 @@ pipeline {
                 docker tag auth-service:latest $ECR_REPO:$IMAGE_TAG
                 docker push $ECR_REPO:$IMAGE_TAG
                 '''
+            }
+        }
+        stage('Build') {
+            steps {
+                container('docker') {
+                    sh 'docker --version'
+                }
             }
         }
 
