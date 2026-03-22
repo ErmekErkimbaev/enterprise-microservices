@@ -3,40 +3,66 @@ pipeline {
 
     environment {
         AWS_REGION = "us-east-2"
-        ECR_REPO = "546941058014.dkr.ecr.us-east-2.amazonaws.com/auth-service"
+        ACCOUNT_ID = "546941058014"
+        ECR_REPO = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/auth-service"
+        IMAGE_TAG = "${env.GIT_COMMIT.take(7)}"
     }
 
     stages {
 
-        stage('Build Docker') {
+        stage('Checkout') {
             steps {
-                dir('auth-service') {
-                    sh 'docker build -t auth-service .'
-                }
+                git 'https://github.com/ErmekErkimbaev/enterprise-microservices.git'
             }
         }
 
-        stage('Login to ECR') {
+        stage('Build & Push (Kaniko)') {
             steps {
                 sh '''
-                aws ecr get-login-password --region $AWS_REGION | \
-                docker login --username AWS --password-stdin 546941058014.dkr.ecr.us-east-2.amazonaws.com
+                kubectl run kaniko \
+                  --rm -i --tty \
+                  --image=gcr.io/kaniko-project/executor:latest \
+                  --restart=Never \
+                  --overrides='
+                  {
+                    "spec": {
+                      "containers": [{
+                        "name": "kaniko",
+                        "image": "gcr.io/kaniko-project/executor:latest",
+                        "args": [
+                          "--dockerfile=auth-service/Dockerfile",
+                          "--context=dir:///workspace",
+                          "--destination=''' + ECR_REPO + ''':' + IMAGE_TAG + '''"
+                        ],
+                        "volumeMounts": [{
+                          "name": "workspace",
+                          "mountPath": "/workspace"
+                        }]
+                      }],
+                      "volumes": [{
+                        "name": "workspace",
+                        "emptyDir": {}
+                      }]
+                    }
+                  }'
                 '''
             }
         }
 
-        stage('Push Image') {
-            steps {
-                sh 'docker tag auth-service:latest $ECR_REPO:latest'
-                sh 'docker push $ECR_REPO:latest'
-            }
-        }
-
-        stage('Deploy') {
+        stage('Update GitOps Repo') {
             steps {
                 sh '''
-                kubectl apply -f auth-service/deployment.yaml
-                kubectl apply -f auth-service/service.yaml
+                git clone https://github.com/YOUR_USERNAME/enterprise-gitops.git
+                cd enterprise-gitops/dev
+
+                sed -i "s|image: .*|image: ${ECR_REPO}:${IMAGE_TAG}|g" auth.yaml
+
+                git config user.email "jenkins@example.com"
+                git config user.name "jenkins"
+
+                git add .
+                git commit -m "update image ${IMAGE_TAG}"
+                git push
                 '''
             }
         }
