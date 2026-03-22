@@ -16,53 +16,24 @@ pipeline {
             }
         }
 
-        stage('Build & Push (Kaniko)') {
+        stage('Build & Push') {
             steps {
                 sh '''
-                kubectl run kaniko \
-                  --rm -i --tty \
-                  --image=gcr.io/kaniko-project/executor:latest \
-                  --restart=Never \
-                  --overrides='
-                  {
-                    "spec": {
-                      "containers": [{
-                        "name": "kaniko",
-                        "image": "gcr.io/kaniko-project/executor:latest",
-                        "args": [
-                          "--dockerfile=auth-service/Dockerfile",
-                          "--context=dir:///workspace",
-                          "--destination=''' + ECR_REPO + ''':' + IMAGE_TAG + '''"
-                        ],
-                        "volumeMounts": [{
-                          "name": "workspace",
-                          "mountPath": "/workspace"
-                        }]
-                      }],
-                      "volumes": [{
-                        "name": "workspace",
-                        "emptyDir": {}
-                      }]
-                    }
-                  }'
+                aws ecr get-login-password --region $AWS_REGION | \
+                docker login --username AWS --password-stdin $ECR_REPO
+
+                docker build -t auth-service ./auth-service
+                docker tag auth-service:latest $ECR_REPO:$IMAGE_TAG
+                docker push $ECR_REPO:$IMAGE_TAG
                 '''
             }
         }
 
-        stage('Update GitOps Repo') {
+        stage('Deploy') {
             steps {
                 sh '''
-                git clone https://github.com/YOUR_USERNAME/enterprise-gitops.git
-                cd enterprise-gitops/dev
-
-                sed -i "s|image: .*|image: ${ECR_REPO}:${IMAGE_TAG}|g" auth.yaml
-
-                git config user.email "jenkins@example.com"
-                git config user.name "jenkins"
-
-                git add .
-                git commit -m "update image ${IMAGE_TAG}"
-                git push
+                kubectl set image deployment/auth-service \
+                auth-service=$ECR_REPO:$IMAGE_TAG
                 '''
             }
         }
