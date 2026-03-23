@@ -58,23 +58,27 @@ spec:
 stage('Update GitOps Repo') {
     steps {
         container('aws') {
-            sh '''
-            rm -rf gitops || true
+            withCredentials([usernamePassword(
+                credentialsId: 'github-creds',
+                usernameVariable: 'GIT_USER',
+                passwordVariable: 'GIT_PASS'
+            )]) {
+                sh '''
+                git clone https://$GIT_USER:$GIT_PASS@github.com/ErmekErkimbaev/enterprise-gitops.git gitops
+                cd gitops/dev
 
-            git clone https://github.com/ErmekErkimbaev/enterprise-gitops.git gitops
-            cd gitops/dev
+                TAG=${GIT_COMMIT:0:7}
 
-            TAG=${GIT_COMMIT:0:7}
+                sed -i "s|image: .*|image: 546941058014.dkr.ecr.us-east-2.amazonaws.com/auth-service:$TAG|g" auth.yaml
 
-            sed -i "s|image: .*|image: 546941058014.dkr.ecr.us-east-2.amazonaws.com/auth-service:$TAG|g" auth.yaml
+                git config user.email "jenkins@example.com"
+                git config user.name "jenkins"
 
-            git config user.email "jenkins@example.com"
-            git config user.name "jenkins"
-
-            git add .
-            git commit -m "update image to $TAG" || echo "no changes"
-            git push
-            '''
+                git add .
+                git commit -m "update image $TAG" || echo "no changes"
+                git push
+                '''
+            }
         }
     }
 }
