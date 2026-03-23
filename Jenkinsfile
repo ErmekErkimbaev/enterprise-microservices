@@ -56,8 +56,7 @@ spec:
     }
 }
 stage('Update GitOps Repo') {
-    steps {
-        container('aws') {
+    container('aws') {
             withCredentials([usernamePassword(
                 credentialsId: 'github-creds',
                 usernameVariable: 'GIT_USER',
